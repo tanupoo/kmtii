@@ -15,6 +15,8 @@ from time import sleep
 import os
 from kmtii_util import *
 
+requests.packages.urllib3.disable_warnings()
+
 def parse_args():
     ap = argparse.ArgumentParser(
             description="""a client implementation
