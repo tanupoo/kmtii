@@ -9,11 +9,15 @@ import json
 from hashlib import sha256
 from datetime import datetime
 import requests
+from time import sleep
 import threading
 from bottle import route, run, request, response, ServerAdapter
 from ssl import wrap_socket
 from wsgiref.simple_server import make_server
 from kmtii_util import *
+import logging
+
+logger = None
 
 def parse_args():
     ap = argparse.ArgumentParser(
@@ -36,7 +40,11 @@ def parse_args():
     ap.add_argument("--untrust", action="store_false", dest="trust_server",
                     help="disable to check the server certificate.")
     ap.add_argument("--tx-count", action="store", dest="tx_count",
+                    type=int, default=3,
                     help="specify the number of transmitting count.")
+    ap.add_argument("--tx-interval", action="store", dest="tx_interval",
+                    type=int, default=5,
+                    help="specify the retransmit interval in seconds.")
     ap.add_argument("-v", action="store_true", dest="verbose",
                     help="enable verbose mode.")
     ap.add_argument("-d", action="store_true", dest="enable_debug",
@@ -68,7 +76,7 @@ def post_csr(csr_pem_b, client_addr, access_url, session_name, opt):
             "session_name": session_name,
             "access_url": access_url,
             })
-    debug(http_body, opt.enable_debug)
+    logger.debug(http_body, opt.enable_debug)
 
     http_header = {}
     http_header["Content-Type"] = "application/json"
@@ -78,16 +86,16 @@ def post_csr(csr_pem_b, client_addr, access_url, session_name, opt):
         res = requests.request("POST", opt.ca_url, headers=http_header,
                             data=http_body, verify=opt.trust_server)
     except Exception as e:
-        error("requests POST failed. {}".format(e))
+        logger.error("requests POST failed. {}".format(e))
+        return False
 
     debug_http_post(res, opt.enable_debug)
 
     if res.ok:
-        if opt.verbose:
-            print("{} {}".format(res.status_code, res.reason))
+        logger.debug("{} {}".format(res.status_code, res.reason))
         return True
     else:
-        error("HTTP response {} {}\n{}".format(
+        logger.error("HTTP response {} {}\n{}".format(
                 res.status_code, res.reason, res.text))
         return False
 
@@ -96,25 +104,26 @@ def worker(session_name, client_addr, csr_pem_b, access_url, opt):
     while True:
         ret = post_csr(csr_pem_b, client_addr, access_url, session_name, opt)
         if ret == True:
-            log_ok("sending CSR succeeded for {}.".format(session_name))
-            break
+            logger.info("sending CSR succeeded for {}.".format(session_name))
+            return
         retry_count -= 1
         if retry_count > 0:
             continue
-        log_error("sending CSR failed for {}.".format(session_name))
-        break
+        logger.error("sending CSR failed for {}.".format(session_name))
+        sleep(opt.tx_interval)
+        return
 
 @route("/csr", method="POST")
 def app_csr():
 
     if request.headers["content-type"] == "application/json":
         body = request.body.read()
-        debug(body, opt.enable_debug)
+        logger.debug(body)
         j = json.loads(body)
         csr_pem_b = j["csr"]
         session_name = j["session_name"]
     else:
-        error("content-type must be JSON")
+        logger.error("content-type must be JSON")
 
     client_addr = (request.environ.get("HTTP_X_FORWARDED_FOR") or
                    request.environ.get("REMOTE_ADDR"))
@@ -148,10 +157,28 @@ class SSLWSGIRefServer(ServerAdapter):
 #
 opt, print_help = parse_args()
 
+def set_logger():
+    global logger
+    LOG_FMT = "%(asctime)s.%(msecs)d %(message)s"
+    LOG_DATE_FMT = "%Y-%m-%dT%H:%M:%S"
+    logging.basicConfig(format=LOG_FMT, datefmt=LOG_DATE_FMT)
+    logger = logging.getLogger("kmtii_c")
+
+    if opt.enable_debug:
+        logger.setLevel(logging.DEBUG)
+        logger_urllib3 = logging.getLogger("requests.packages.urllib3")
+        logger_urllib3.setLevel(logging.DEBUG)
+        logger_urllib3.propagate = True
+    else:
+        requests.packages.urllib3.disable_warnings()
+        logger.setLevel(logging.INFO)
+
+set_logger()
+
 # XXX get the initial parameter (e.g. lead_time) from CA.
 # this should be another thread ?
 
-print("listen on https://{}:{}/".format(opt.bind_addr, opt.bind_port))
+logger.info("listen on https://{}:{}/".format(opt.bind_addr, opt.bind_port))
 run(host=opt.bind_addr, port=opt.bind_port, server=SSLWSGIRefServer,
-    quiet=False, debug=False,
+    quiet=not opt.enable_debug, debug=False,
     server_cert=opt.my_cert)
