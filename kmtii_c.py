@@ -15,25 +15,27 @@ from time import sleep
 import os
 from kmtii_util import *
 
-ap = argparse.ArgumentParser(
-        description="""a client implementation
-        for the ip address certification.""",
-        epilog="still in progress.",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-ap.add_argument("client_addr",
-                help="specify the client's address.")
-ap.add_argument("--server-url", action="store", dest="server_url",
-                help="specify the URL to post CSR.")
-ap.add_argument("--key-size", action="store", dest="key_size",
-                type=int, default=2048,
-                help="specify the putlic key size.")
-ap.add_argument("--untrust", action="store_false", dest="trust_server",
-                help="disable to check the server certificate.")
-ap.add_argument("-v", action="store_true", dest="verbose",
-                help="enable verbose mode.")
-ap.add_argument("-d", action="store_true", dest="enable_debug",
-                help="enable debug mode.")
-opt = ap.parse_args()
+def parse_args():
+    ap = argparse.ArgumentParser(
+            description="""a client implementation
+            for the ip address certification.""",
+            epilog="still in progress.",
+            formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    ap.add_argument("client_addr",
+                    help="specify the client's address.")
+    ap.add_argument("--server-url", action="store", dest="server_url",
+                    help="specify the URL to post CSR.")
+    ap.add_argument("--key-size", action="store", dest="key_size",
+                    type=int, default=2048,
+                    help="specify the putlic key size.")
+    ap.add_argument("--untrust", action="store_false", dest="trust_server",
+                    help="disable to check the server certificate.")
+    ap.add_argument("-v", action="store_true", dest="verbose",
+                    help="enable verbose mode.")
+    ap.add_argument("-d", action="store_true", dest="enable_debug",
+                    help="enable debug mode.")
+    opt = ap.parse_args()
+    return opt, ap.print_help
 
 def make_session_name(opt):
     # create the session name.
@@ -191,6 +193,7 @@ def do_session(csr_pem, pkey_pem, session_name, opt):
 #
 # main
 #
+opt, print_help = parse_args()
 session_name = make_session_name(opt)
 
 # create CSR and Key pair.

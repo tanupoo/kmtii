@@ -15,33 +15,34 @@ from ssl import wrap_socket
 from wsgiref.simple_server import make_server
 from kmtii_util import *
 
-ap = argparse.ArgumentParser(
-        description="""a proxy server implementation
-        for the ip address certification.""",
-        epilog="still in progress.",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-ap.add_argument("--ca-url", action="store", dest="ca_url", required=True,
-                help="specify the URL of CA to submit CSR.")
-ap.add_argument("--ra-url", action="store", dest="ra_url", required=True,
-                help="specify the URL of RA.")
-ap.add_argument("--bind-addr", action="store", dest="bind_addr",
-                default="0.0.0.0",
-                help="specify the address to be bound.")
-ap.add_argument("--bind-port", action="store", dest="bind_port",
-                type=int, default=41887,
-                help="specify the port number to be bound.")
-ap.add_argument("--my-cert", action="store", dest="my_cert", required=True,
-                help="specify the certificate of mine.")
-ap.add_argument("--untrust", action="store_false", dest="trust_server",
-                help="disable to check the server certificate.")
-ap.add_argument("--tx-count", action="store", dest="tx_count",
-                help="specify the number of transmitting count.")
-ap.add_argument("-v", action="store_true", dest="verbose",
-                help="enable verbose mode.")
-ap.add_argument("-d", action="store_true", dest="enable_debug",
-                help="enable debug mode.")
-
-opt = ap.parse_args()
+def parse_args():
+    ap = argparse.ArgumentParser(
+            description="""a proxy server implementation
+            for the ip address certification.""",
+            epilog="still in progress.",
+            formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    ap.add_argument("--ca-url", action="store", dest="ca_url", required=True,
+                    help="specify the URL of CA to submit CSR.")
+    ap.add_argument("--ra-url", action="store", dest="ra_url", required=True,
+                    help="specify the URL of RA.")
+    ap.add_argument("--bind-addr", action="store", dest="bind_addr",
+                    default="0.0.0.0",
+                    help="specify the address to be bound.")
+    ap.add_argument("--bind-port", action="store", dest="bind_port",
+                    type=int, default=41887,
+                    help="specify the port number to be bound.")
+    ap.add_argument("--my-cert", action="store", dest="my_cert", required=True,
+                    help="specify the certificate of mine.")
+    ap.add_argument("--untrust", action="store_false", dest="trust_server",
+                    help="disable to check the server certificate.")
+    ap.add_argument("--tx-count", action="store", dest="tx_count",
+                    help="specify the number of transmitting count.")
+    ap.add_argument("-v", action="store_true", dest="verbose",
+                    help="enable verbose mode.")
+    ap.add_argument("-d", action="store_true", dest="enable_debug",
+                    help="enable debug mode.")
+    opt = ap.parse_args()
+    return opt, ap.print_help
 
 lead_time = 10
 
@@ -145,6 +146,7 @@ class SSLWSGIRefServer(ServerAdapter):
 #
 # main
 #
+opt, print_help = parse_args()
 
 # XXX get the initial parameter (e.g. lead_time) from CA.
 # this should be another thread ?
