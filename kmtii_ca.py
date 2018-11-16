@@ -10,11 +10,15 @@ from datetime import datetime
 from OpenSSL import crypto
 import base64
 import requests
+from time import sleep
 import threading
 from bottle import route, run, request, response, ServerAdapter
 from ssl import wrap_socket
 from wsgiref.simple_server import make_server
+import logging
 from kmtii_util import *
+
+lead_time = 10
 
 def parse_args():
     ap = argparse.ArgumentParser(
@@ -35,15 +39,17 @@ def parse_args():
     ap.add_argument("--untrust", action="store_false", dest="trust_server",
                     help="disable to check the server certificate.")
     ap.add_argument("--tx-count", action="store", dest="tx_count",
+                    type=int, default=3,
                     help="specify the number of transmitting count.")
+    ap.add_argument("--tx-interval", action="store", dest="tx_interval",
+                    type=int, default=5,
+                    help="specify the retransmit interval in seconds.")
     ap.add_argument("-v", action="store_true", dest="verbose",
                     help="enable verbose mode.")
     ap.add_argument("-d", action="store_true", dest="enable_debug",
                     help="enable debug mode.")
     opt = ap.parse_args()
     return opt, ap.print_help
-
-lead_time = 10
 
 @route("/state")
 def app_state():
@@ -65,7 +71,7 @@ def post_cert(client_cert_pem, client_addr, session_name, access_url, opt):
             "session_name": session_name,
             "access_url": access_url,
             })
-    debug(http_body, opt.enable_debug)
+    logger.debug(http_body)
 
     http_header = {}
     http_header["Content-Type"] = "application/json"
@@ -75,18 +81,18 @@ def post_cert(client_cert_pem, client_addr, session_name, access_url, opt):
         res = requests.request("POST", opt.ra_url, headers=http_header,
                             data=http_body, verify=opt.trust_server)
     except Exception as e:
-        error("requests POST failed. {}".format(e))
+        logger.error("requests POST failed. {}".format(e))
+        return False
 
-    debug_http_post(res, opt.enable_debug)
+    debug_http_post(res, logger)
 
-    if res.ok:
-        if opt.verbose:
-            print("{} {}".format(res.status_code, res.reason))
-        return True
-    else:
-        error("HTTP response {} {}\n{}".format(
+    if not res.ok:
+        logger.error("HTTP response {} {}\n{}".format(
                 res.status_code, res.reason, res.text))
         return False
+
+    logger.debug("{} {}".format(res.status_code, res.reason))
+    return True
 
 def worker(csr_pem, client_addr, session_name, access_url, opt):
     # XXX need to check the parameter in CSR.
@@ -130,20 +136,20 @@ def worker(csr_pem, client_addr, session_name, access_url, opt):
         ret = post_cert(client_cert_pem, client_addr,
                         session_name, access_url, opt)
         if ret == True:
-            log_ok("sending CERT succeeded for {}.".format(session_name))
-            break
+            logger.info("sending CERT succeeded for {}.".format(session_name))
+            return
         retry_count -= 1
         if retry_count > 0:
             continue
-        log_error("sending CERT failed for {}.".format(session_name))
-        break
+        logger.error("sending CERT failed for {}.".format(session_name))
+        return
 
 @route("/csr", method="POST")
 def app_csr():
 
     if request.headers["content-type"] == "application/json":
         body = request.body.read()
-        debug(body, opt.enable_debug)
+        logger.debug(body)
         j = json.loads(body)
         csr_pem = base64.b64decode(j["csr"])
         client_addr = j["client_addr"]
@@ -178,11 +184,11 @@ class SSLWSGIRefServer(ServerAdapter):
 # main
 #
 opt, print_help = parse_args()
+logger = set_logger(logging, opt.enable_debug)
+if not opt.enable_debug:
+    requests.packages.urllib3.disable_warnings()
 
-# XXX get the initial parameter (e.g. lead_time) from CA.
-# this should be another thread ?
-
-print("listen on https://{}:{}/".format(opt.bind_addr, opt.bind_port))
+logger.info("listen on https://{}:{}/".format(opt.bind_addr, opt.bind_port))
 run(host=opt.bind_addr, port=opt.bind_port, server=SSLWSGIRefServer,
-    quiet=False, debug=False,
+    quiet=not opt.enable_debug, debug=opt.enable_debug,
     server_cert=opt.my_cert)

@@ -14,7 +14,10 @@ import threading
 from bottle import route, run, request, response, ServerAdapter
 from ssl import wrap_socket
 from wsgiref.simple_server import make_server
+import logging
 from kmtii_util import *
+
+lead_time = 10
 
 def parse_args():
     ap = argparse.ArgumentParser(
@@ -41,8 +44,6 @@ def parse_args():
     opt = ap.parse_args()
     return opt, ap.print_help
 
-lead_time = 10
-
 @route("/state")
 def app_state():
     # XXX in seconds. it should be taken from CA.
@@ -60,22 +61,31 @@ def responder():
     # check the request
     if request.headers["content-type"] == "application/json":
         body = request.body.read()
-        debug(body, opt.enable_debug)
+        logger.debug(body)
         j = json.loads(body)
         session_name = j["session_name"]
     else:
-        error("content-type must be JSON")
+        msg = "content-type must be application/json"
+        logger.error(msg)
+        response.status = 400
+        return msg
 
     route_key = request.path[request.path.rindex("/"):]
     client_cert_info = cert_tab.get(route_key)
     if client_cert_info is None:
-        error("route_key {} is not valid.".format(route_key))
+        msg = "the access url {} is not valid.".format(route_key)
+        logger.error(msg)
+        response.status = 400
+        return msg
 
     if client_cert_info["session_name"] != session_name:
-        error("session_name mismatched. db({}) req({})".format(
-                client_cert_info["session_name"], session_name))
+        msg = "session_name mismatched. db({}) req({})".format(
+                client_cert_info["session_name"], session_name)
+        logger.error(msg)
+        response.status = 400
+        return "Bad Request"    # XXX don't send the internal session_name.
 
-    debug(client_cert_info, opt.enable_debug)
+    logger.debug(client_cert_info)
     response.content_type = "application/json"
     return json.dumps(client_cert_info)
 
@@ -84,14 +94,17 @@ def app_cert():
 
     if request.headers["content-type"] == "application/json":
         body = request.body.read()
-        debug(body, opt.enable_debug)
+        logger.debug(body)
         j = json.loads(body)
         client_cert_pem = base64.b64decode(j["cert"])
         client_addr = j["client_addr"]
         session_name = j["session_name"]
         access_url = j["access_url"]
     else:
-        error("content-type must be JSON")
+        msg = "content-type must be application/json"
+        logger.error(msg)
+        response.status = 400
+        return msg
 
     client_cert_file = session_name + ".crt"
     with open(client_cert_file, "wb+") as fd:
@@ -103,6 +116,7 @@ def app_cert():
             "session_name": session_name
             }
     route(route_key, method="POST", callback=responder)
+    return
 
 class SSLWSGIRefServer(ServerAdapter):
 
@@ -119,11 +133,11 @@ class SSLWSGIRefServer(ServerAdapter):
 # main
 #
 opt, print_help = parse_args()
+logger = set_logger(logging, opt.enable_debug)
+if not opt.enable_debug:
+    requests.packages.urllib3.disable_warnings()
 
-# XXX get the initial parameter (e.g. lead_time) from CA.
-# this should be another thread ?
-
-print("listen on https://{}:{}/".format(opt.bind_addr, opt.bind_port))
+logger.info("listen on https://{}:{}/".format(opt.bind_addr, opt.bind_port))
 run(host=opt.bind_addr, port=opt.bind_port, server=SSLWSGIRefServer,
-    quiet=False, debug=False,
+    quiet=not opt.enable_debug, debug=opt.enable_debug,
     server_cert=opt.my_cert)

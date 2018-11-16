@@ -13,6 +13,13 @@
 
     e.g. b44b573412e6134e0f3bfa2f2fb26e1d4b2724bf1f9d4a1e1432018a9572f221
 
+## HTTP error code
+
+        | 400  | Bad Request                   | Section 6.5.1            |
+        | 401  | Unauthorized                  | Section 3.1 of [RFC7235] |
+        | 403  | Forbidden                     | Section 6.5.3            |
+        | 404  | Not Found                     | Section 6.5.4            |
+
 ## Client to Proxy Server
 
 At least, one of certificates of the trusted points

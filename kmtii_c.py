@@ -13,9 +13,8 @@ import base64
 import requests
 from time import sleep
 import os
+import logging
 from kmtii_util import *
-
-requests.packages.urllib3.disable_warnings()
 
 def parse_args():
     ap = argparse.ArgumentParser(
@@ -110,7 +109,7 @@ def post_csr(csr_pem, session_name, opt):
             "csr": base64.b64encode(csr_pem).decode("utf-8"),
             "session_name": session_name,
             })
-    debug(http_body, opt.enable_debug)
+    logger.debug(http_body)
 
     http_header = {}
     http_header["Content-Type"] = "application/json"
@@ -120,30 +119,34 @@ def post_csr(csr_pem, session_name, opt):
         res = requests.request("POST", opt.server_url, headers=http_header,
                             data=http_body, verify=opt.trust_server)
     except Exception as e:
-        error("requests POST failed. {}".format(e))
+        logger.error("requests POST failed. {}".format(e))
+        return None, None
 
-    debug_http_post(res, opt.enable_debug)
+    debug_http_post(res, logger)
 
-    if res.ok:
-        res_json = res.json()
-        debug("{} {}".format(res.status_code, res.reason), opt.enable_debug)
-        debug(res_json, opt.enable_debug)
-        if res.headers["content-type"] == "application/json":
-            access_url = res_json["access_url"]
-            lead_time = int(res_json["lead_time"])
-            return access_url, lead_time
-        else:
-            error("HTTP response from the server must be json.  {}".
-                    format(res.text))
-    else:
-        error("HTTP response {} {}\n{}".format(
+    if not res.ok:
+        logger.error("HTTP response {} {}\n{}".format(
                 res.status_code, res.reason, res.text))
+        return None, None
+
+    res_json = res.json()
+    logger.debug("{} {}".format(res.status_code, res.reason))
+    logger.debug(res_json)
+
+    if res.headers["content-type"] != "application/json":
+        logger.error("HTTP response from the server must be json.  {}".
+                format(res.text))
+        return None, None
+
+    access_url = res_json["access_url"]
+    lead_time = int(res_json["lead_time"])
+    return access_url, lead_time
 
 def get_cert(access_url, session_name):
     http_body = json.dumps({
             "session_name": session_name,
             })
-    debug(http_body, opt.enable_debug)
+    logger.debug(http_body)
 
     http_header = {}
     http_header["Content-Type"] = "application/json"
@@ -153,57 +156,66 @@ def get_cert(access_url, session_name):
         res = requests.request("POST", access_url, headers=http_header,
                             data=http_body, verify=opt.trust_server)
     except Exception as e:
-        error("requests POST failed. {}".format(e))
+        logger.error("requests POST failed. {}".format(e))
+        return None
 
-    debug_http_post(res, opt.enable_debug)
+    debug_http_post(res, logger)
 
-    if res.ok:
-        res_json = res.json()
-        debug("{} {}".format(res.status_code, res.reason), opt.enable_debug)
-        debug(res_json, opt.enable_debug)
-        if res.headers["content-type"] == "application/json":
-            cert_pem = base64.b64decode(res_json["cert"])
-            return cert_pem
-        else:
-            error("HTTP response from the server must be json.  {}".
-                    format(res.text))
-    else:
-        error("HTTP response {} {}\n{}".format(
+    if not res.ok:
+        logger.error("HTTP response {} {}\n{}".format(
                 res.status_code, res.reason, res.text))
+        return None
+
+    res_json = res.json()
+    logger.debug("{} {}".format(res.status_code, res.reason))
+    logger.debug(res_json)
+    if res.headers["content-type"] != "application/json":
+        logger.error("HTTP response from the server must be json.  {}".
+                format(res.text))
+        return None
+
+    cert_pem = base64.b64decode(res_json["cert"])
+    return cert_pem
 
 def do_session(csr_pem, pkey_pem, session_name, opt):
 
     # post CSR to S
-    debug("submitting CSR to {}".format(opt.server_url), opt.enable_debug)
+    logger.debug("submitting CSR to {}".format(opt.server_url))
     access_url, lead_time = post_csr(csr_pem, session_name, opt)
     if access_url is None:
-        error("getting access url failed.")
+        logger.error("getting access url failed.")
+        return None
 
-    debug("waiting in {} seconds for the certificate creation.".
-          format(lead_time), opt.enable_debug)
+    logger.debug("waiting in {} seconds for the certificate creation.".
+          format(lead_time))
     sleep(lead_time)
 
-    debug("accessing to {}".format(access_url), opt.enable_debug)
+    logger.debug("accessing to {}".format(access_url))
     cert_pem = get_cert(access_url, session_name)
     if cert_pem is None:
-        error("getting certificate failed.")
-    with open(session_name+".crt", 'wb+') as fd:
-        fd.write(cert_pem)
+        logger.error("getting certificate failed.")
+        return None
 
-    debug("successful to get my certificate.", opt.enable_debug)
+    return cert_pem
 
 #
 # main
 #
 opt, print_help = parse_args()
+logger = set_logger(logging, opt.enable_debug)
+if not opt.enable_debug:
+    requests.packages.urllib3.disable_warnings()
+
+#
 session_name = make_session_name(opt)
 
 # create CSR and Key pair.
-debug("creating CSR", opt.enable_debug)
+logger.debug("creating CSR")
 csr_pem, pkey_pem = get_csr(session_name, opt)
-debug("CSR: {}".format(csr_pem), opt.enable_debug)
+logger.debug("CSR: {}".format(csr_pem))
 if csr_pem is None or pkey_pem is None:
-    error("getting CSR failed.")
+    logger.error("getting CSR failed.")
+    exit(1)
 
 csr_file = session_name + ".csr"
 pkey_file = session_name + ".key"
@@ -213,9 +225,19 @@ with open(csr_file, "wb+") as fd:
 with open(pkey_file, 'wb+') as fd:
     fd.write(pkey_pem)
 
+cert_pem = None
 try:
-    do_session(csr_pem, pkey_pem, session_name, opt)
+    cert_pem = do_session(csr_pem, pkey_pem, session_name, opt)
 except KeyboardInterrupt:
     os.remove(csr_file)
     os.remove(pkey_file)
+    exit(1)
+
+if cert_pem is not None:
+    exit(1)
+
+with open(session_name+".crt", 'wb+') as fd:
+    fd.write(cert_pem)
+
+logger.info("successful to get my certificate.")
 

@@ -17,7 +17,7 @@ from wsgiref.simple_server import make_server
 from kmtii_util import *
 import logging
 
-logger = None
+lead_time = 10
 
 def parse_args():
     ap = argparse.ArgumentParser(
@@ -52,8 +52,6 @@ def parse_args():
     opt = ap.parse_args()
     return opt, ap.print_help
 
-lead_time = 10
-
 def get_lead_time():
     # XXX in seconds. it should be taken from CA.
     global lead_time
@@ -76,7 +74,7 @@ def post_csr(csr_pem_b, client_addr, access_url, session_name, opt):
             "session_name": session_name,
             "access_url": access_url,
             })
-    logger.debug(http_body, opt.enable_debug)
+    logger.debug(http_body)
 
     http_header = {}
     http_header["Content-Type"] = "application/json"
@@ -89,15 +87,15 @@ def post_csr(csr_pem_b, client_addr, access_url, session_name, opt):
         logger.error("requests POST failed. {}".format(e))
         return False
 
-    debug_http_post(res, opt.enable_debug)
+    debug_http_post(res, logger)
 
-    if res.ok:
-        logger.debug("{} {}".format(res.status_code, res.reason))
-        return True
-    else:
+    if not res.ok:
         logger.error("HTTP response {} {}\n{}".format(
                 res.status_code, res.reason, res.text))
         return False
+
+    logger.debug("{} {}".format(res.status_code, res.reason))
+    return True
 
 def worker(session_name, client_addr, csr_pem_b, access_url, opt):
     retry_count = opt.tx_count
@@ -116,14 +114,15 @@ def worker(session_name, client_addr, csr_pem_b, access_url, opt):
 @route("/csr", method="POST")
 def app_csr():
 
-    if request.headers["content-type"] == "application/json":
-        body = request.body.read()
-        logger.debug(body)
-        j = json.loads(body)
-        csr_pem_b = j["csr"]
-        session_name = j["session_name"]
-    else:
+    if request.headers["content-type"] != "application/json":
         logger.error("content-type must be JSON")
+        return None
+
+    body = request.body.read()
+    logger.debug(body)
+    j = json.loads(body)
+    csr_pem_b = j["csr"]
+    session_name = j["session_name"]
 
     client_addr = (request.environ.get("HTTP_X_FORWARDED_FOR") or
                    request.environ.get("REMOTE_ADDR"))
@@ -156,29 +155,14 @@ class SSLWSGIRefServer(ServerAdapter):
 # main
 #
 opt, print_help = parse_args()
-
-def set_logger():
-    global logger
-    LOG_FMT = "%(asctime)s.%(msecs)d %(message)s"
-    LOG_DATE_FMT = "%Y-%m-%dT%H:%M:%S"
-    logging.basicConfig(format=LOG_FMT, datefmt=LOG_DATE_FMT)
-    logger = logging.getLogger("kmtii_c")
-
-    if opt.enable_debug:
-        logger.setLevel(logging.DEBUG)
-        logger_urllib3 = logging.getLogger("requests.packages.urllib3")
-        logger_urllib3.setLevel(logging.DEBUG)
-        logger_urllib3.propagate = True
-    else:
-        requests.packages.urllib3.disable_warnings()
-        logger.setLevel(logging.INFO)
-
-set_logger()
+logger = set_logger(logging, opt.enable_debug)
+if not opt.enable_debug:
+    requests.packages.urllib3.disable_warnings()
 
 # XXX get the initial parameter (e.g. lead_time) from CA.
 # this should be another thread ?
 
 logger.info("listen on https://{}:{}/".format(opt.bind_addr, opt.bind_port))
 run(host=opt.bind_addr, port=opt.bind_port, server=SSLWSGIRefServer,
-    quiet=not opt.enable_debug, debug=False,
+    quiet=not opt.enable_debug, debug=opt.enable_debug,
     server_cert=opt.my_cert)

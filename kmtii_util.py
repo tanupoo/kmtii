@@ -1,24 +1,30 @@
-def debug(x, enable_debug):
+
+def set_logger(logging, enable_debug):
+    LOG_FMT = "%(asctime)s.%(msecs)d %(message)s"
+    LOG_DATE_FMT = "%Y-%m-%dT%H:%M:%S"
+    logging.basicConfig(format=LOG_FMT, datefmt=LOG_DATE_FMT)
+    logger = logging.getLogger("kmtii_r")
+
     if enable_debug:
-        print("DEBUG:", x)
+        logger.setLevel(logging.DEBUG)
+        logger_urllib3 = logging.getLogger("requests.packages.urllib3")
+        logger_urllib3.setLevel(logging.DEBUG)
+        logger_urllib3.propagate = True
+    else:
+        logger.setLevel(logging.INFO)
 
-def debug_http_post(res, enable_debug):
-    debug("POST", enable_debug)
-    debug("---- REQUEST HEADER ----", enable_debug)
+    return logger
+
+def debug_http_post(res, logger):
+    logger.debug("POST")
+    logger.debug("---- REQUEST HEADER ----")
     for k,v in res.request.headers.items():
-        debug("{}: {}".format(k,v), enable_debug)
-    debug("---- REQUEST BODY ----", enable_debug)
-    debug("{} {} {}".format(res.request.method, res.request.path_url,
-                                res.request.url), enable_debug)
-    debug("---- RESPONSE HEADER ----", enable_debug)
+        logger.debug("{}: {}".format(k,v))
+    logger.debug("---- REQUEST BODY ----")
+    logger.debug("{} {} {}".format(res.request.method, res.request.path_url,
+                                res.request.url))
+    logger.debug("---- RESPONSE HEADER ----")
     for k,v in res.headers.items():
-        debug("{}: {}".format(k,v), enable_debug)
-    debug("---- RESPONSE ----", enable_debug)
-
-def log_ok(x):
-    print("INFO:", x)
-
-def error(x):
-    print("ERROR:", x)
-    exit(-1)
+        logger.debug("{}: {}".format(k,v))
+    logger.debug("---- RESPONSE ----")
 
