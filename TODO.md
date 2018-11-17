@@ -1,6 +1,7 @@
 ## json
 
-encode()
+    x encode()
+    - requests.read() return str in Ubuntu ?
 
 ## serial_num:
 
