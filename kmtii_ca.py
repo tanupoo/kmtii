@@ -26,6 +26,8 @@ def parse_args():
             for the ip address certification.""",
             epilog="still in progress.",
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    ap.add_argument("domain_name", action="store",
+                    help="specify the domain name.")
     ap.add_argument("--ra-url", action="store", dest="ra_url", required=True,
                     help="specify the URL of RA.")
     ap.add_argument("--bind-addr", action="store", dest="bind_addr",
@@ -94,7 +96,7 @@ def post_cert(client_cert_pem, client_addr, session_name, access_url, opt):
     logger.debug("{} {}".format(res.status_code, res.reason))
     return True
 
-def worker(csr_pem, client_addr, session_name, access_url, opt):
+def worker(csr_pem, client_addr, wan_addr, session_name, access_url, opt):
     # XXX need to check the parameter in CSR.
     # csr.get_subject()
     csr = crypto.load_certificate_request(crypto.FILETYPE_PEM, csr_pem)
@@ -113,11 +115,30 @@ def worker(csr_pem, client_addr, session_name, access_url, opt):
     notAfterVal = 60*60*24*365*10   # XXX 10 years
 
     cert = crypto.X509()
+    cert.set_version(2)
     cert.set_serial_number(serial_num)
     cert.gmtime_adj_notBefore(notBefore)
     cert.gmtime_adj_notAfter(notAfterVal)
     cert.set_issuer(signer_cert.get_subject())
     cert.set_subject(csr.get_subject())
+
+    # add extensions
+    san_list = [
+        "IP: {}".format(wan_addr).encode(),
+        "DNS: {}.{}".format(1+access_url[access_url.rindex("/"):],
+                            opt.domain_name).encode()
+    ]
+    x509_ext = []
+    for i in csr.get_extensions():
+        # XXX need to check the content of the SAN.
+        if i.get_short_name() == b'subjectAltName':
+            x509_ext.append(i)
+    x509_ext.append(
+            # XXX need to canonicalize.
+            crypto.X509Extension(type_name=b"subjectAltName",
+                                 critical=False, value=b", ".join(san_list)))
+    cert.add_extensions(x509_ext)
+
     cert.set_pubkey(csr.get_pubkey())
     cert.sign(signer_key, "sha256")
 
@@ -153,12 +174,13 @@ def app_csr():
         j = json.loads(body)
         csr_pem = base64.b64decode(j["csr"])
         client_addr = j["client_addr"]
+        wan_addr = j["wan_addr"]
         session_name = j["session_name"]
         access_url = j["access_url"]
     else:
         error("content-type must be JSON")
 
-    t = threading.Thread(target=worker, args=(csr_pem, client_addr,
+    t = threading.Thread(target=worker, args=(csr_pem, client_addr, wan_addr,
                                               session_name, access_url, opt,))
     t.start()
 
