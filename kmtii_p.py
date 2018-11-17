@@ -123,6 +123,7 @@ def app_csr():
 
     body = request.body.read()
     logger.debug(body)
+    # XXX the type of body is str in ubuntu.
     j = json.loads(body)
     csr_pem_b = j["csr"]
     session_name = j["session_name"]
