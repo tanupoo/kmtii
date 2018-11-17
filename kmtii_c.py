@@ -227,7 +227,7 @@ except KeyboardInterrupt:
     os.remove(pkey_file)
     exit(1)
 
-if cert_pem is not None:
+if cert_pem is None:
     exit(1)
 
 with open(session_name+".crt", 'wb+') as fd:
