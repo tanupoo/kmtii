@@ -1,5 +1,10 @@
+#!/bin/sh
 
-rm C/*.crt C/*.key C/*.csr
-rm CA/*.crt CA/*.csr
-rm R/*.crt
-
+for name in client proxy ca repo
+do
+    if [ -d ${name} ] ; then
+        rm ${name}/*.crt
+        rm ${name}/*.key 
+        rm ${name}/*.csr
+    fi
+done

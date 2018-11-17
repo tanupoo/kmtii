@@ -1,0 +1,8 @@
+${python_path} ${bin_path}/kmtii_p.py \
+    10.0.0.1 \
+    --untrust \
+    --ca-url https://127.0.0.1:41888/csr \
+    --ra-url https://127.0.0.1:41889 \
+    --my-cert proxy.pem \
+    --bind-port 41887 \
+    $*

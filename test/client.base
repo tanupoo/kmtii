@@ -1,0 +1,5 @@
+${python_path} ${bin_path}/kmtii_c.py \
+    127.0.0.1 \
+    --untrust \
+    --server-url https://127.0.0.1:41887/csr \
+    $*

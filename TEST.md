@@ -1,14 +1,32 @@
+TEST
+====
 
 ## how to test
 
+- change test directory.
+
+    cd test
+
+- execute prepare.sh. the 1st argument is the path to python. the 2nd argument is the full path to the script directory.
+
+    sh prepare.sh /usr/bin/python3 /opt/kmtii/bin
+
+- Or, if you use the relative path as the 3rd argument, please remember that the path is from the each entity directory under the test directory.
+
+    sh prepare.sh /usr/bin/python3 ../..
+
 - open four terminals.
-- cd test on each terminal.
+- change test directory on each terminal.
 - execute below 4 script on each terminal.
 
     + client.sh
     + proxy.sh
     + ca.sh
-    + repository.sh
+    + repo.sh
+
+- if you want to see the debug messages, just add -dv to the shell scripts.
+
+- if you execute clean.sh, it will clean the files of crt, key, and csr.
 
 ## test topology
 
@@ -19,4 +37,5 @@
     CA: https://127.0.0.1:41888
 
      R: https://127.0.0.1:41889
+
 

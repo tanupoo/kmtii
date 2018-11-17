@@ -1,0 +1,7 @@
+${python_path} ${bin_path}/kmtii_ca.py \
+    --domain-name nic.ad.jp \
+    --untrust \
+    --ra-url https://127.0.0.1:41889/cert \
+    --my-cert ca.pem \
+    --bind-port 41888 \
+    $*
