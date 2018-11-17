@@ -55,6 +55,7 @@ def app_state():
 cert_tab = {}
 
 # dynamic route
+# XXX need to be removed in a few hours.
 def responder():
     # check the request
     if request.headers["content-type"] == "application/json":
