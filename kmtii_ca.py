@@ -79,12 +79,18 @@ def post_cert(client_cert_pem, client_addr, session_name, access_url, opt):
     http_header["Content-Type"] = "application/json"
     http_header["Accept"] = "application/json"
 
-    try:
-        res = requests.request("POST", opt.ra_url, headers=http_header,
-                            data=http_body, verify=opt.trust_server)
-    except Exception as e:
-        logger.error("requests POST failed. {}".format(e))
-        return False
+    tx_count = opt.tx_count
+    while tx_count > 0:
+        tx_count -= 1
+        try:
+            res = requests.request("POST", opt.ra_url, headers=http_header,
+                                data=http_body, verify=opt.trust_server)
+            break
+        except Exception as e:
+            logger.error("accessing Repository failed. {}".format(e))
+            if tx_count == 0:
+                return None, None
+        sleep(opt.tx_interval)
 
     debug_http_post(res, logger)
 
@@ -152,18 +158,13 @@ def worker(csr_pem, client_addr, wan_addr, session_name, access_url, opt):
     with open(client_cert_file, "wb+") as fd:
         fd.write(client_cert_pem)
 
-    retry_count = opt.tx_count
-    while True:
-        ret = post_cert(client_cert_pem, client_addr,
-                        session_name, access_url, opt)
-        if ret == True:
-            logger.info("sending CERT succeeded for {}.".format(session_name))
-            return
-        retry_count -= 1
-        if retry_count > 0:
-            continue
+    ret = post_cert(client_cert_pem, client_addr,
+                    session_name, access_url, opt)
+    if ret != True:
         logger.error("sending CERT failed for {}.".format(session_name))
         return
+    logger.info("sending CERT succeeded for {}.".format(session_name))
+    return
 
 @route("/csr", method="POST")
 def app_csr():
