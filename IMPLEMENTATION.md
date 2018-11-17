@@ -1,17 +1,24 @@
+IMPLEMENTATION
+==============
+
 ## Notation
 
 - C: Client
-- S: Proxy Server
+- P: Proxy Server
 - CA
-- Repository
-
+- R: Repository
 - PEM
 
     base64 encoded ascii armor including newlines.
 
-- SessionName:
+- SessionName
 
     e.g. b44b573412e6134e0f3bfa2f2fb26e1d4b2724bf1f9d4a1e1432018a9572f221
+
+- ClientLocalAddress
+- ClientWANAddress
+- AccessURL
+- AccessNAME
 
 ## HTTP error code
 
@@ -25,6 +32,10 @@
 At least, one of certificates of the trusted points
 to authenticate Proxy Server must be given.
 a long hex string is recommended for session_name.
+
+    CSR:
+        CN = <SessionName>
+        SAN: IP = <ClientLocalAddress>
 
     POST https://proxy.example.com/csr
     POST https://192.168.0.1/csr
@@ -63,9 +74,10 @@ to authenticate CA must be given.
     
     {
         "csr": "<PEM>",
-        "client_addr": "<IPaddress>",
+        "client_addr": "<ClientLocalAddress>",
+        "wan_addr": "<ClientWANAddress>",
         "session_name": "<SessionName>",
-        "access_url": "<URLR>"
+        "access_url": "<AccessURL>"
     }
 
 The response from CA to Proxy Server:
@@ -77,12 +89,17 @@ The response from CA to Proxy Server:
 At least, one of certificates of the trusted points
 to authenticate Repository must be given.
 
+    CERT:
+        SAN: IP = <ClientLocalAddress>
+        SAN: IP = <ClientWANAddress>
+        SAN: DNS = <AccessName>
+
     POST https://ra.example.com/cert
     Content-Type: application/json
     
     {
         "cert": "<PEM>"
-        "client_addr": "<IPaddress>"
+        "client_addr": "<ClientLocalAddress>"
         "session_name": "<SessionName>",
         "access_url": "<AccessURL>"
     }
