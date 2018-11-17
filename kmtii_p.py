@@ -25,6 +25,8 @@ def parse_args():
             for the ip address certification.""",
             epilog="still in progress.",
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    ap.add_argument("wan_addr",
+                    help="specify the WAN address.")
     ap.add_argument("--ca-url", action="store", dest="ca_url", required=True,
                     help="specify the URL of CA to submit CSR.")
     ap.add_argument("--ra-url", action="store", dest="ra_url", required=True,
@@ -71,6 +73,7 @@ def post_csr(csr_pem_b, client_addr, access_url, session_name, opt):
     http_body = json.dumps({
             "csr": csr_pem_b,
             "client_addr": client_addr,
+            "wan_addr": opt.wan_addr,
             "session_name": session_name,
             "access_url": access_url,
             })
@@ -80,12 +83,18 @@ def post_csr(csr_pem_b, client_addr, access_url, session_name, opt):
     http_header["Content-Type"] = "application/json"
     http_header["Accept"] = "application/json"
 
-    try:
-        res = requests.request("POST", opt.ca_url, headers=http_header,
-                            data=http_body, verify=opt.trust_server)
-    except Exception as e:
-        logger.error("requests POST failed. {}".format(e))
-        return False
+    tx_count = opt.tx_count
+    while tx_count > 0:
+        tx_count -= 1
+        try:
+            res = requests.request("POST", opt.ca_url, headers=http_header,
+                                data=http_body, verify=opt.trust_server)
+            break
+        except Exception as e:
+            logger.error("accessing CA failed. {}".format(e))
+            if tx_count == 0:
+                return None, None
+        sleep(opt.tx_interval)
 
     debug_http_post(res, logger)
 
@@ -98,18 +107,12 @@ def post_csr(csr_pem_b, client_addr, access_url, session_name, opt):
     return True
 
 def worker(session_name, client_addr, csr_pem_b, access_url, opt):
-    retry_count = opt.tx_count
-    while True:
-        ret = post_csr(csr_pem_b, client_addr, access_url, session_name, opt)
-        if ret == True:
-            logger.info("sending CSR succeeded for {}.".format(session_name))
-            return
-        retry_count -= 1
-        if retry_count > 0:
-            continue
+    ret = post_csr(csr_pem_b, client_addr, access_url, session_name, opt)
+    if ret != True:
         logger.error("sending CSR failed for {}.".format(session_name))
-        sleep(opt.tx_interval)
         return
+    logger.info("sending CSR succeeded for {}.".format(session_name))
+    return
 
 @route("/csr", method="POST")
 def app_csr():
