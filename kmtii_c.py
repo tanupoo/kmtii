@@ -49,43 +49,9 @@ def get_csr(session_name, opt):
     # create CSR.
     csr = crypto.X509Req()
     subject = csr.get_subject()
-    # XXX what is the name of the client ?
-    #subject.C = b"JP"
-    #subject.ST = b"Tokyo"
-    #subject.O = b"JPNIC"
-    #subject.OU = b"Engineering"
     subject.CN = session_name.encode()
 
-    # add extensions
-    x509_extensions = []
-
-    # XXX what is the constraints, extensions ?
-    '''
-    # base_constraints
-    x509_extensions.extend([
-        crypto.X509Extension("basicConstraints", True, "CA:TRUE, pathlen:0"),
-        crypto.X509Extension("extendedKeyUsage", True,
-                            "serverAuth,emailProtection,timeStamping"),
-        crypto.X509Extension("keyUsage", False, "keyCertSign, cRLSign"),
-        crypto.X509Extension("subjectKeyIdentifier", False, "hash", subject=ca),
-        ])
-    '''
-
-    '''
-    # SubjectAltName
-        e.g.
-        DNS: hoge.example.com
-        IP: 192.168.0.2
-    '''
-    sans_list = [
-        "IP: {}".format(opt.client_addr).encode()
-    ]
-    x509_extensions.append(
-            crypto.X509Extension(type_name=b"subjectAltName",
-                                critical=False,
-                                value=b", ".join(sans_list)))
-
-    csr.add_extensions(x509_extensions)
+    # XXX the client's ip address should be set into SAN for RA's check ?
 
     # generate a key pair and sign to CSR.
     pkey = crypto.PKey()
