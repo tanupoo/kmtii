@@ -6,6 +6,7 @@ from __future__ import print_function
 import sys
 import argparse
 import json
+from hashlib import sha256
 from datetime import datetime
 from OpenSSL import crypto
 import base64
