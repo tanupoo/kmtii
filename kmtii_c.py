@@ -31,6 +31,12 @@ def parse_args():
                     help="specify the putlic key size.")
     ap.add_argument("--untrust", action="store_false", dest="trust_server",
                     help="disable to check the server certificate.")
+    ap.add_argument("--tx-count", action="store", dest="tx_count",
+                    type=int, default=3,
+                    help="specify the number of transmitting count.")
+    ap.add_argument("--tx-interval", action="store", dest="tx_interval",
+                    type=int, default=5,
+                    help="specify the retransmit interval in seconds.")
     ap.add_argument("-v", action="store_true", dest="verbose",
                     help="enable verbose mode.")
     ap.add_argument("-d", action="store_true", dest="enable_debug",
@@ -91,12 +97,18 @@ def post_csr(csr_pem, session_name, opt):
     http_header["Content-Type"] = "application/json"
     http_header["Accept"] = "application/json"
 
-    try:
-        res = requests.request("POST", opt.server_url, headers=http_header,
-                            data=http_body, verify=opt.trust_server)
-    except Exception as e:
-        logger.error("requests POST failed. {}".format(e))
-        return None, None
+    tx_count = opt.tx_count
+    while tx_count > 0:
+        tx_count -= 1
+        try:
+            res = requests.request("POST", opt.server_url, headers=http_header,
+                                data=http_body, verify=opt.trust_server)
+            break
+        except Exception as e:
+            logger.error("accessing RA failed. {}".format(e))
+            if tx_count == 0:
+                return None, None
+        sleep(opt.tx_interval)
 
     debug_http_post(res, logger)
 
@@ -128,12 +140,18 @@ def get_cert(access_url, session_name):
     http_header["Content-Type"] = "application/json"
     http_header["Accept"] = "application/json"
 
-    try:
-        res = requests.request("POST", access_url, headers=http_header,
-                            data=http_body, verify=opt.trust_server)
-    except Exception as e:
-        logger.error("requests POST failed. {}".format(e))
-        return None
+    tx_count = opt.tx_count
+    while tx_count > 0:
+        tx_count -= 1
+        try:
+            res = requests.request("POST", access_url, headers=http_header,
+                                data=http_body, verify=opt.trust_server)
+            break
+        except Exception as e:
+            logger.error("accessing Repository failed. {}".format(e))
+            if tx_count == 0:
+                return None, None
+        sleep(opt.tx_interval)
 
     debug_http_post(res, logger)
 
