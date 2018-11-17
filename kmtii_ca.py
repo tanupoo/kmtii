@@ -46,6 +46,9 @@ def parse_args():
     ap.add_argument("--tx-interval", action="store", dest="tx_interval",
                     type=int, default=5,
                     help="specify the retransmit interval in seconds.")
+    ap.add_argument("--cert-not-before", action="store", dest="not_before",
+                    type=int, default=30,
+                    help="specify the number of not_before in minutes.")
     ap.add_argument("-v", action="store_true", dest="verbose",
                     help="enable verbose mode.")
     ap.add_argument("-d", action="store_true", dest="enable_debug",
@@ -115,10 +118,10 @@ def worker(csr_pem, client_addr, wan_addr, session_name, access_url, opt):
         signer_key_pem = fd.read()
     signer_key = crypto.load_privatekey(crypto.FILETYPE_PEM, signer_key_pem)
 
-    # XXX how to manage the serial_num ?
-    serial_num = 1
-    notBefore = 0
-    notAfterVal = 60*60*24*365*10   # XXX 10 years
+    # serial number is a number which is less than 20 bytes.
+    serial_num = int(sha256(csr.get_subject().der()).digest()[:20].hex(),16)
+    notBefore = -60*opt.not_before
+    notAfterVal = 60*60*24*14 # 2 weeks
 
     cert = crypto.X509()
     cert.set_version(2)
