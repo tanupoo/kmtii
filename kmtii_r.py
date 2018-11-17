@@ -35,8 +35,6 @@ def parse_args():
                     help="specify the certificate of mine.")
     ap.add_argument("--untrust", action="store_false", dest="trust_server",
                     help="disable to check the server certificate.")
-    ap.add_argument("--tx-count", action="store", dest="tx_count",
-                    help="specify the number of transmitting count.")
     ap.add_argument("-v", action="store_true", dest="verbose",
                     help="enable verbose mode.")
     ap.add_argument("-d", action="store_true", dest="enable_debug",
