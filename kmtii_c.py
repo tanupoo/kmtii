@@ -56,10 +56,12 @@ def get_csr(session_name, opt):
     sans_list = [
 	"IP: {}".format(opt.client_addr).encode()
     ]
-    x509_extensions.append(
-	    crypto.X509Extension(type_name=b"subjectAltName",
-				critical=False,
-				value=b", ".join(sans_list)))
+    x509_ext = []
+    x509_ext.append(
+            crypto.X509Extension(type_name=b"subjectAltName",
+                                 critical=False,
+                                 value=b", ".join(sans_list)))
+    csr.add_extensions(x509_ext)
 
     # generate a key pair and sign to CSR.
     pkey = crypto.PKey()
