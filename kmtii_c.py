@@ -52,6 +52,14 @@ def get_csr(session_name, opt):
     subject.CN = session_name.encode()
 
     # XXX the client's ip address should be set into SAN for RA's check ?
+    # XXX currently, the address is set for sure.
+    sans_list = [
+	"IP: {}".format(opt.client_addr).encode()
+    ]
+    x509_extensions.append(
+	    crypto.X509Extension(type_name=b"subjectAltName",
+				critical=False,
+				value=b", ".join(sans_list)))
 
     # generate a key pair and sign to CSR.
     pkey = crypto.PKey()
