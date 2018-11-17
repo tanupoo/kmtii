@@ -1,9 +1,9 @@
 #!/bin/sh
 
 python_path=$1
-bin_path=$2
-if [ -z "$python_path" -o -z "$bin_path" ] ; then
-    echo "Usage: $0 (python_path) (bin_path)"
+pkg_dir=$2
+if [ -z "$python_path" -o -z "$pkg_dir" ] ; then
+    echo "Usage: $0 (python_path) (pkg_dir)"
     exit 1
 fi
 
@@ -16,11 +16,11 @@ done
 
 for name in client proxy ca repo
 do
-    cat <<EOD | cat - ../${name}.base > ${name}.sh
+    cat <<EOD | cat - ${pkg_dir}/test/${name}.base > ${name}.sh
 #!/bin/sh
 
 python_path=${python_path}
-bin_path=${bin_path}
+pkg_dir=${pkg_dir}
 
 cd ${name}/
 

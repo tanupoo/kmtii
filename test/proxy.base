@@ -1,4 +1,4 @@
-${python_path} ${bin_path}/kmtii_p.py \
+${python_path} ${pkg_dir}/kmtii_p.py \
     10.0.0.1 \
     --untrust \
     --ca-url https://127.0.0.1:41888/csr \

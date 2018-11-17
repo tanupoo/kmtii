@@ -7,13 +7,9 @@ TEST
 
     cd test
 
-- execute prepare.sh. the 1st argument is the path to python. the 2nd argument is the full path to the script directory.
+- execute prepare.sh. the 1st argument is the path to python. the 2nd argument is the full path to the package directory.
 
-    sh prepare.sh /usr/bin/python3 /opt/kmtii/bin
-
-- Or, if you use the relative path as the 3rd argument, please remember that the path is from the each entity directory under the test directory.
-
-    sh prepare.sh /usr/bin/python3 ../..
+    sh prepare.sh /usr/bin/python3 /opt/pkg/kmtii
 
 - open four terminals.
 - change test directory on each terminal.

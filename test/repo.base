@@ -1,4 +1,4 @@
-${python_path} ${bin_path}/kmtii_r.py \
+${python_path} ${pkg_dir}/kmtii_r.py \
     --untrust \
     --my-cert repo.pem \
     --bind-port 41889 \
