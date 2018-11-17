@@ -135,7 +135,7 @@ def worker(csr_pem, client_addr, wan_addr, session_name, access_url, opt):
     # add extensions
     san_list = [
         "IP: {}".format(wan_addr).encode(),
-        "DNS: {}.{}".format(1+access_url[access_url.rindex("/"):],
+        "DNS: {}.{}".format(access_url[1+access_url.rindex("/"):],
                             opt.domain_name).encode()
     ]
     x509_ext = []
