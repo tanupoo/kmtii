@@ -27,8 +27,6 @@ def parse_args():
             for the ip address certification.""",
             epilog="still in progress.",
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    ap.add_argument("domain_name", action="store",
-                    help="specify the domain name.")
     ap.add_argument("--ra-url", action="store", dest="ra_url", required=True,
                     help="specify the URL of RA.")
     ap.add_argument("--bind-addr", action="store", dest="bind_addr",
@@ -47,6 +45,8 @@ def parse_args():
     ap.add_argument("--tx-interval", action="store", dest="tx_interval",
                     type=int, default=5,
                     help="specify the retransmit interval in seconds.")
+    ap.add_argument("--domain-name", action="store", dest="domain_name",
+                    help="specify the domain name.")
     ap.add_argument("--cert-not-before", action="store", dest="not_before",
                     type=int, default=30,
                     help="specify the number of not_before in minutes.")
