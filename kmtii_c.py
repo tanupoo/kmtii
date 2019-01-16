@@ -3,7 +3,6 @@
 
 from __future__ import print_function
 
-import sys
 import argparse
 import json
 from hashlib import sha256
@@ -14,7 +13,8 @@ import requests
 from time import sleep
 import os
 import logging
-from kmtii_util import *
+from kmtii_util import set_logger, debug_http_post
+
 
 def parse_args():
     ap = argparse.ArgumentParser(
@@ -44,12 +44,14 @@ def parse_args():
     opt = ap.parse_args()
     return opt, ap.print_help
 
+
 def make_session_name(opt):
     # create the session name.
     m = sha256()
     m.update(opt.client_addr.encode())
     m.update(str(datetime.now()).encode())
     return m.hexdigest()
+
 
 def get_csr(session_name, opt):
     # create CSR.
@@ -60,7 +62,7 @@ def get_csr(session_name, opt):
     # XXX the client's ip address should be set into SAN for RA's check ?
     # XXX currently, the address is set for sure.
     sans_list = [
-	"IP: {}".format(opt.client_addr).encode()
+        "IP: {}".format(opt.client_addr).encode()
     ]
     x509_ext = []
     x509_ext.append(
@@ -82,6 +84,7 @@ def get_csr(session_name, opt):
 
     return csr_pem, pkey_pem
 
+
 def post_csr(csr_pem, session_name, opt):
     '''
     post CSR to S.
@@ -101,8 +104,9 @@ def post_csr(csr_pem, session_name, opt):
     while tx_count > 0:
         tx_count -= 1
         try:
-            res = requests.request("POST", opt.server_url, headers=http_header,
-                                data=http_body, verify=opt.trust_server)
+            res = requests.request("POST", opt.server_url,
+                                   headers=http_header,
+                                   data=http_body, verify=opt.trust_server)
             break
         except Exception as e:
             logger.error("accessing RA failed. {}".format(e))
@@ -123,12 +127,13 @@ def post_csr(csr_pem, session_name, opt):
 
     if res.headers["content-type"] != "application/json":
         logger.error("HTTP response from the server must be json.  {}".
-                format(res.text))
+                     format(res.text))
         return None, None
 
     access_url = res_json["access_url"]
     lead_time = int(res_json["lead_time"])
     return access_url, lead_time
+
 
 def get_cert(access_url, session_name):
     http_body = json.dumps({
@@ -145,7 +150,7 @@ def get_cert(access_url, session_name):
         tx_count -= 1
         try:
             res = requests.request("POST", access_url, headers=http_header,
-                                data=http_body, verify=opt.trust_server)
+                                   data=http_body, verify=opt.trust_server)
             break
         except Exception as e:
             logger.error("accessing Repository failed. {}".format(e))
@@ -165,11 +170,12 @@ def get_cert(access_url, session_name):
     logger.debug(res_json)
     if res.headers["content-type"] != "application/json":
         logger.error("HTTP response from the server must be json.  {}".
-                format(res.text))
+                     format(res.text))
         return None
 
     cert_pem = base64.b64decode(res_json["cert"])
     return cert_pem
+
 
 def do_session(csr_pem, pkey_pem, session_name, opt):
 
@@ -181,7 +187,7 @@ def do_session(csr_pem, pkey_pem, session_name, opt):
         return None
 
     logger.debug("waiting in {} seconds for the certificate creation.".
-          format(lead_time))
+                 format(lead_time))
     sleep(lead_time)
 
     logger.debug("accessing to {}".format(access_url))
@@ -195,6 +201,8 @@ def do_session(csr_pem, pkey_pem, session_name, opt):
 #
 # main
 #
+
+
 opt, print_help = parse_args()
 logger = set_logger(logging, opt.enable_debug)
 if not opt.enable_debug:
@@ -234,4 +242,3 @@ with open(session_name+".crt", 'wb+') as fd:
     fd.write(cert_pem)
 
 logger.info("successful to get my certificate.")
-
