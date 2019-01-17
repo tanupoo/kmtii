@@ -5,7 +5,7 @@ A framwork for the IP Address-based certification.
 
 ## requirement
 
-- Python3
+- Python3.5 or newer
 - pyopenssl
 - requests
 - bottle
