@@ -18,5 +18,5 @@ you can install the modules like below
 
     % pip install -r requirement.txt
 
-Depending your platform, you may use pip3.
+Depending on your platform, you may use pip3.
 
